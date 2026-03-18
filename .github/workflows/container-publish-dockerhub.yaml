@@ -8,7 +8,6 @@
 # Requires DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets in repository settings
 
 name: Build and Push to Docker Hub
-
 on:
   push:
     tags:
@@ -18,6 +17,10 @@ on:
 env:
   REGISTRY: docker.io
   IMAGE_NAME: janeshin059/brokenbank-jashin
+  CORTEX_API_KEY: ${{secrets.CORTEX_API_KEY}}
+  CORTEX_API_KEY_ID: ${{secrets.CORTEX_API_KEY_ID}}
+  CORTEX_API_URL: https://api-japac-ccr.xdr.jp.paloaltonetworks.com
+
 
 jobs:
   build-and-push:
@@ -32,6 +35,17 @@ jobs:
       - name: Set up QEMU for multi-architecture builds
         uses: docker/setup-qemu-action@v3
 
+      - name: Download cortexcli
+        run: |
+          set -x
+          # crtx_resp=$(curl "${CORTEX_API_URL}/public_api/v1/unified-cli/releases/download-link?os=linux&architecture=amd64" \
+          #   -H "x-xdr-auth-id: ${CORTEX_API_KEY_ID}" \
+          #   -H "Authorization: ${CORTEX_API_KEY}")
+          crtx_resp=$(curl -s "https://api-japac-ccr.xdr.jp.paloaltonetworks.com/public_api/v1/unified-cli/releases/download-link?os=linux&architecture=amd64" -H "x-xdr-auth-id: ${CORTEX_API_KEY_ID}" -H "Authorization: ${CORTEX_API_KEY}") && crtx_url=$(echo $crtx_resp | jq -r ".signed_url") && crtx_file=$(echo $crtx_resp | jq -r ".file_name") && curl -o $crtx_file $crtx_url 
+          crtx_url=$(echo $crtx_resp | jq -r ".signed_url")
+          curl -o cortexcli $crtx_url
+          chmod +x cortexcli
+          ./cortexcli --version
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -51,14 +65,35 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable=true
 
-      - name: Build and push Docker image
+      - name: Build and Export to tar
         id: push
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
+          platforms: linux/amd64
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=docker,dest=/tmp/image.tar
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # (선택 사항) 생성된 .tar 파일을 GitHub Actions Artifact로 저장하여 다운로드 가능하게 함
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-image
+          path: /tmp/image.tar
+      
+      - name: Run Cortex CLI Image Scan
+        run: |
+          ./cortexcli --api-base-url "${CORTEX_API_URL}" --api-key "${CORTEX_API_KEY}" --api-key-id "${CORTEX_API_KEY_ID}" image scan /tmp/image.tar
+      - name: Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true   
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+          cache-from: type=gha
