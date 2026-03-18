@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
         - name: gocortexbrokenbank
-          image: gocortexio/gocortexbrokenbank:latest
+          image: janeshin059/brokenbank-jashin:latest
           imagePullPolicy: Always
           ports:
             # Flask app
