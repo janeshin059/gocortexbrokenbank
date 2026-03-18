@@ -65,22 +65,24 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable=true
 
-      - name: Build and Export to Docker
-        id: push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: false
-          load: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # - name: Build and Export to Docker
+      #   id: push
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: .
+      #     platforms: linux/amd64
+      #     push: false
+      #     load: true
+      #     tags: ${{ steps.meta.outputs.tags }}
+      #     labels: ${{ steps.meta.outputs.labels }}
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
 
       # - name: Save Docker image to tar
       #   run: |
       #     docker save -o image.tar ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      - name: Build image
+        run: docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest .
       - name: Run Cortex CLI Image Scan
         run: |
           sudo ./cortexcli --api-base-url "${CORTEX_API_URL}" --api-key "${CORTEX_API_KEY}" --api-key-id "${CORTEX_API_KEY_ID}" image scan ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
