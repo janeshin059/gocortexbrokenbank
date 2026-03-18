@@ -83,7 +83,7 @@ jobs:
       #     docker save -o image.tar ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
       - name: Run Cortex CLI Image Scan
         run: |
-          ./cortexcli --api-base-url "${CORTEX_API_URL}" --api-key "${CORTEX_API_KEY}" --api-key-id "${CORTEX_API_KEY_ID}" image scan ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          sudo ./cortexcli --api-base-url "${CORTEX_API_URL}" --api-key "${CORTEX_API_KEY}" --api-key-id "${CORTEX_API_KEY_ID}" image scan ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
       - name: Push Docker image
         uses: docker/build-push-action@v5
         with:
