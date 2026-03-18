@@ -72,22 +72,20 @@ jobs:
           context: .
           platforms: linux/amd64
           push: false
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=docker,dest=/tmp/image.tar
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      # (선택 사항) 생성된 .tar 파일을 GitHub Actions Artifact로 저장하여 다운로드 가능하게 함
-      - name: Upload image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: container-image
-          path: /tmp/image.tar
-      
+
+      - name: Save Docker image to tar
+        run: |
+          docker save -o image.tar ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
       - name: Run Cortex CLI Image Scan
         run: |
           docker load -i /tmp/image.tar
-          ./cortexcli --api-base-url "${CORTEX_API_URL}" --api-key "${CORTEX_API_KEY}" --api-key-id "${CORTEX_API_KEY_ID}" image scan --archive /tmp/image.tar
+          ./cortexcli --api-base-url "${CORTEX_API_URL}" --api-key "${CORTEX_API_KEY}" --api-key-id "${CORTEX_API_KEY_ID}" image scan --archive image.tar
       - name: Push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -96,5 +94,4 @@ jobs:
           push: true   
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
           cache-from: type=gha
