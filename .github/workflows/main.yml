@@ -7,7 +7,7 @@
 # Multi-architecture: linux/amd64 and linux/arm64 (Apple Silicon)
 # Requires DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets in repository settings
 
-name: main
+name: Build, Push and Deploy BrokenBank
 on:
   push:
     tags:
@@ -81,7 +81,7 @@ jobs:
             docker save -o image.tar ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
       - name: Run Cortex CLI Image Scan
         run: |
-          sudo -E ./cortexcli --log-level debug --api-base-url "${CORTEX_API_URL}" --api-key "${CORTEX_API_KEY}" --api-key-id "${CORTEX_API_KEY_ID}" image scan --timeout 600 --archive image.tar
+          sudo -E ./cortexcli --api-base-url "${CORTEX_API_URL}" --api-key "${CORTEX_API_KEY}" --api-key-id "${CORTEX_API_KEY_ID}" image scan --timeout 600 --archive image.tar
       - name: Push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -102,23 +102,29 @@ jobs:
       - name: Deploy to EKS
         run: |
           aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
-          cat <<EOF | kubectl apply -f -
+          cat <<EOF | kubectl apply -f -			
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: gocortexbrokenbank
+          ---
           apiVersion: apps/v1
           kind: Deployment
           metadata:
-            name: broken-bank
+            name: gocortexbrokenbank
+            namespace: gocortexbrokenbank
           spec:
             replicas: 1
             selector:
               matchLabels:
-                app: broken-bank
+                app: gocortexbrokenbank
             template:
               metadata:
                 labels:
-                  app: broken-bank
+                  app: gocortexbrokenbank
               spec:
                 containers:
-                - name: broken-bank
+                - name: gocortexbrokenbank
                   image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
                   imagePullPolicy: Always
                   ports:
@@ -128,18 +134,26 @@ jobs:
           apiVersion: v1
           kind: Service
           metadata:
-            name: broken-bank-service
+            name: gocortexbrokenbank
+            namespace: gocortexbrokenbank
+            labels:
+              app: gocortexbrokenbank
+            
           spec:
             type: LoadBalancer
             selector:
-              app: broken-bank
+              app: gocortexbrokenbank
             ports:
-              - name: tomcat
-                protocol: TCP
-                port: 80
-                targetPort: 8080
               - name: flask
-                protocol: TCP
                 port: 8888
                 targetPort: 8888
+                protocol: TCP
+              - name: tomcat
+                port: 9999
+                targetPort: 8080
+                protocol: TCP
+              - name: react
+                port: 7777
+                targetPort: 7777
+                protocol: TCP
           EOF
