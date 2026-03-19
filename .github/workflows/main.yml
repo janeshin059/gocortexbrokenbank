@@ -7,7 +7,7 @@
 # Multi-architecture: linux/amd64 and linux/arm64 (Apple Silicon)
 # Requires DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets in repository settings
 
-name: Build and Push to Docker Hub
+name: main
 on:
   push:
     tags:
